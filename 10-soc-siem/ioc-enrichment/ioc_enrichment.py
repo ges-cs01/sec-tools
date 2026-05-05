@@ -182,6 +182,20 @@ def enrich_hash(hash_val: str, vt: VirusTotalClient) -> IOCResult:
 
     return result
 
+def mitre_for_ip(result: IOCResult) -> str:
+    verdict = result.verdict
+    tags    = result.vt_data.get("tags", [])
+    usage   = result.abip_data.get("usageType", "")
+
+    if verdict in ("malicious", "suspicious"):
+        if "tor-exit-node" in tags or "Tor" in usage:
+            return "T1090.003 - Proxy: Multi-hop Proxy (Tor)"
+        if "c2" in tags:
+            return "T1071 - Application Layer Protocol (C2 communication)"
+        return "T1071 - Application Layer Protocol / T1041 - Exfiltration Over C2"
+
+    return "N/A — no malicious activity detected"
+
 def _ts(epoch: Optional[int]) -> str:
     if not epoch:
         return "N/A"
@@ -227,7 +241,7 @@ def render_ip_section(r: IOCResult) -> str:
         f"| Usage Type | {usage_type} |",
         f"| Last Reported | {last_seen} |",
         "",
-        f"**MITRE ATT&CK:** `{MITRE_MAP['ip']}`",
+        f"**MITRE ATT&CK:** `{mitre_for_ip(r)}`",
         "",
     ]
     return "\n".join(lines)
