@@ -1,0 +1,5 @@
+.env
+*.pyc
+__pycache__/
+.pytest_cache/
+reports/ioc_report_*.md

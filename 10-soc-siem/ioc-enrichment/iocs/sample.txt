@@ -1,0 +1,15 @@
+# IOC sample file — one IOC per line
+# Lines starting with # are ignored
+# Supported: IPv4 addresses, MD5 hashes, SHA256 hashes
+
+# ── Suspicious IPs (known bad — safe to test) ──────────────────────────────
+185.220.101.45
+193.32.162.157
+45.142.212.100
+
+# ── File hashes (public malware samples) ───────────────────────────────────
+# Mimikatz (SHA256)
+92a3928dcc6cd7939f2b9e6c6f763dfa631e4902c0ca6fae0b5b7d1efd6f9f7e
+
+# Generic downloader (MD5 — often seen in phishing)
+44d88612fea8a8f36de82e1278abb02f
