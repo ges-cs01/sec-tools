@@ -48,14 +48,14 @@ auditpol /get /subcategory:"Kerberos Service Ticket Operations"
 Three-level rule cascade:
 
 1. **100001 (level 12)** — Any 4769 with etype `0x17` and standard ticket options.
-2. **100002 (level 14)** — Same, filtered to exclude machine accounts (`$` suffix) and `krbtgt` using PCR2 regex on `win.eventdata.serviceName`. Higher confidence
+2. **100002 (level 14)** — Same, filtered to exclude machine accounts (`$` suffix) and `krbtgt` using PCRE2 regex on `win.eventdata.serviceName`. Higher confidence
 3. **100003 (level 15)** — 3+ RC4 TGS requests from same source IP in 60 seconds (correlated from rule 100002). Near-certain automated tooling.
 
 ## False positives
 
 | Scenario | Likelihood | Mitigation |
 |---|---|---|
-| Legacy app using RC4 | Low–Medium | Whitelist `ServiceName` and `ClientAddress` in rule 100001 |
+| Legacy app using RC4 | Low–Medium | Whitelist `ServiceName` and `ipAddress` in rule 100001 |
 | Old Windows clients | Very Low | These shouldn't exist in a patched AD |
 | Legitimate pen test | Medium | Coordinate with change management; suppress by IP during window |
 
@@ -77,7 +77,7 @@ Any recurring `ServiceName` that appears legitimately → add to filter.
 pip install impacket
 
 # Request all TGS tickets for SPNs in the domain
-python3 GetUserSPNs.py lab.local/lowpriv:Password123 -dc-ip 192.168.x.x -request -outputfile hashes.txt
+GetUserSPNs.py lab.local/lowpriv:Password123 -dc-ip 192.168.x.x -request -outputfile hashes.txt
 
 # Crack offline
 hashcat -m 13100 hashes.txt /usr/share/wordlists/rockyou.txt
@@ -106,7 +106,7 @@ Invoke-AtomicTest T1558.003
 
 ## Response playbook (SOC L1)
 
-1. **Identify** the `ClientAddress` (source) and `Account Name` (requesting user).
+1. **Identify** the `ipAddress` (source) and `Account Name` (requesting user).
 2. **Check** if the source IP is a known pen test host or authorized scanner.
 3. **Pivot** — did this account make other suspicious requests? Check logon events (4624) and process creation (4688/Sysmon 1) on the source host.
 4. **Escalate to L2** if: source is unexpected, multiple service names targeted, or cracking attempt detected on the wire (monitor outbound traffic to known cracking IPs).
