@@ -1,0 +1,39 @@
+title: Kerberoasting — TGS Request with RC4 Encryption
+id: 4f9a5e2d-3b8c-4e7f-a1d6-9c2b5f8e3a7d
+status: test
+description: |
+    Detects Kerberos service ticket requests using RC4 encryption (etype 0x17/23).
+    Kerberoasting abuses this to request offline-crackable TGS tickets for
+    service accounts. Modern environments should use AES (etype 0x12/18) exclusively.
+references:
+    - https://attack.mitre.org/techniques/T1558/003/
+    - https://www.harmj0y.net/blog/powershell/kerberoasting-without-mimikatz/
+    - https://docs.microsoft.com/en-us/windows/security/threat-protection/auditing/event-4769
+author: ges-cs01
+date: 2025/01/01
+modified: 2026/05/10
+tags:
+    - attack.credential_access
+    - attack.t1558.003
+logsource:
+    product: windows
+    service: security
+detection:
+    selection:
+        EventID: 4769
+        TicketEncryptionType: '0x17'
+        TicketOptions: '0x40810000'
+    filter_machine_accounts:
+        ServiceName|endswith: '$'
+    filter_krbtgt:
+        ServiceName: 'krbtgt'
+    condition: selection and not filter_machine_accounts and not filter_krbtgt
+falsepositives:
+    - Legacy applications configured to use RC4 (check ServiceName and IpAddress)
+    - Old Windows XP/2003 clients (shouldn't exist in modern environments)
+level: high
+fields:
+    - ServiceName
+    - IpAddress
+    - ClientName
+    - TicketEncryptionType

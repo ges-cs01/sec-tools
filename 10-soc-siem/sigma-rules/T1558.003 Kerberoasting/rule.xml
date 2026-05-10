@@ -1,0 +1,35 @@
+<group name="windows,kerberoasting,credential_access,mitre_attack,">
+
+  <rule id="100001" level="12">
+    <if_sid>60103</if_sid> <field name="win.system.eventID">^4769$</field>
+    <field name="win.eventdata.ticketEncryptionType">^0x17$</field>
+    <field name="win.eventdata.ticketOptions">^0x4</field>
+    <description>Possible Kerberoasting: TGS requested with RC4 encryption (etype 0x17) — T1558.003</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1558.003</id>
+    </mitre>
+    <group>credential_access,kerberoasting,</group>
+  </rule>
+
+  <rule id="100002" level="14">
+    <if_sid>100001</if_sid>
+    <field name="win.eventdata.serviceName" type="pcre2" negate="yes">\$</field>
+    <field name="win.eventdata.serviceName" type="pcre2" negate="yes">^krbtgt$</field>
+    <description>High confidence Kerberoasting: RC4 TGS for non-machine account — T1558.003</description>
+    <mitre>
+      <id>T1558.003</id>
+    </mitre>
+    <group>credential_access,kerberoasting,high_confidence,</group>
+  </rule>
+
+  <rule id="100003" level="15" frequency="3" timeframe="60">
+    <if_matched_sid>100002</if_matched_sid>
+    <same_field>win.eventdata.ipAddress</same_field> <description>Kerberoasting sweep: 3+ RC4 TGS requests from same source in 60s — T1558.003</description>
+    <mitre>
+      <id>T1558.003</id>
+    </mitre>
+    <group>credential_access,kerberoasting,sweep,high_confidence,</group>
+  </rule>
+
+</group>
