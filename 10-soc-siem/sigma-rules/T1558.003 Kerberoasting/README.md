@@ -35,7 +35,7 @@ auditpol /get /subcategory:"Kerberos Service Ticket Operations"
 
 ## Key fields in Event 4769
 
-| Field | Kerberoasting indicator |
+| Field | Kerberoasting indicator |https://blog.harmj0y.net/powershell/kerberoasting-without-mimikatz/
 |---|---|
 | `Ticket Encryption Type` | `0x17` (RC4-HMAC) — suspicious; `0x12` (AES256) is normal |
 | `Ticket Options` | `0x40810000` — standard TGS request flags |
@@ -115,6 +115,6 @@ Invoke-AtomicTest T1558.003
 ## References
 
 - [MITRE ATT&CK T1558.003](https://attack.mitre.org/techniques/T1558/003/)
-- [HarmJ0y — Kerberoasting Without Mimikatz](https://www.harmj0y.net/blog/powershell/kerberoasting-without-mimikatz/)
+- [HarmJ0y — Kerberoasting Without Mimikatz](https://blog.harmj0y.net/powershell/kerberoasting-without-mimikatz/)
 - [Microsoft — Event 4769](https://docs.microsoft.com/en-us/windows/security/threat-protection/auditing/event-4769)
-- [SpecterOps — Detecting Kerberoasting](https://posts.specterops.io/detecting-kerberoasting-activity-807686f89d93)
+- [adsecurity — Detecting Kerberoasting Activity](https://adsecurity.org/?p=3458)
