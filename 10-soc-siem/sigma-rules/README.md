@@ -19,7 +19,7 @@ Every directory contains:
 | ID | Technique | Rule ID | Status |
 |---|---|---|---|
 | T1558.003 | Kerberoasting | 100001 | ✅ |
-| T1558.004 | AS-REP Roasting | 100002 | 🔲 |
+| T1558.004 | AS-REP Roasting | 100002 | ✅ |
 | T1003.001 | LSASS Memory Dump | 100003 | 🔲 |
 | T1110.003 | Password Spraying | 100004 | 🔲 |
 

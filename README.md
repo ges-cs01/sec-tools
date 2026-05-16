@@ -48,7 +48,7 @@ Detection rules for Wazuh mapped to MITRE ATT&CK, focused on Active Directory th
 | ID | Technique | Status |
 |---|---|---|
 | T1558.003 | Kerberoasting | ✅ |
-| T1558.004 | AS-REP Roasting | 🔲 |
+| T1558.004 | AS-REP Roasting | ✅ |
 | T1003.001 | LSASS Memory Dump | 🔲 |
 | T1110.003 | Password Spraying | 🔲 |
 | T1550.002 | Pass-the-Hash | 🔲 |

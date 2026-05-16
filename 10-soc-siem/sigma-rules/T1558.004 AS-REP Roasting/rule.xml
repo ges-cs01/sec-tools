@@ -1,0 +1,79 @@
+<!--
+  Rule: AS-REP Roasting — T1558.004
+  Author: ges-cs01
+  Wazuh rule IDs: 100010, 100011, 100012
+  Log source: Windows Security Event Log — Event ID 4768
+
+  AS-REP Roasting targets accounts with "Do not require Kerberos preauthentication"
+  (DONT_REQ_PREAUTH). The DC returns an AS-REP encrypted with the account's NTLM
+  hash — no password needed to request it. Crackable offline (Hashcat mode 18200).
+
+  Difference from Kerberoasting:
+  - Kerberoasting: needs valid creds, targets SPNs, Event 4769
+  - AS-REP Roasting: needs NO creds, targets DONT_REQ_PREAUTH accounts, Event 4768
+
+  Requires:
+    auditpol /set /subcategory:"Kerberos Authentication Service" /success:enable /failure:enable
+
+  Drop into: /var/ossec/etc/rules/local_rules.xml
+  Restart:   systemctl restart wazuh-manager
+-->
+
+<group name="windows,asreproasting,credential_access,mitre_attack">
+
+  <!--
+    Base rule: AS-REP returned without preauthentication.
+    EventID 4768 — A Kerberos authentication ticket (TGT) was requested.
+
+    Key indicators:
+    - preAuthType = 0: no preauthentication required — core indicator.
+    - status = 0x0: DC successfully issued the ticket.
+    - serviceName matches krbtgt: AS-REP roasting requests are always
+      for the krbtgt service (TGT), not arbitrary SPNs like Kerberoasting.
+  -->
+  <rule id="100010" level="12">
+    <if_sid>60103</if_sid>
+    <field name="win.system.eventID">^4768$</field>
+    <field name="win.eventdata.preAuthType">^0$</field>
+    <field name="win.eventdata.status" type="pcre2">^(0x0|0X0|0)$</field>
+    <field name="win.eventdata.serviceName" type="pcre2">(?i)^krbtgt</field>
+    <description>Possible AS-REP Roasting: Kerberos AS-REP issued without preauthentication — T1558.004</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1558.004</id>
+    </mitre>
+    <group>credential_access,asreproasting</group>
+  </rule>
+
+  <!--
+    High-confidence: RC4 encryption requested on the AS-REP.
+    Attackers explicitly request RC4 (0x17) — faster to crack than AES.
+    pcre2 with (?i) handles case variations in the hex value.
+  -->
+  <rule id="100011" level="14">
+    <if_sid>100010</if_sid>
+    <field name="win.eventdata.ticketEncryptionType" type="pcre2">(?i)^0x17$</field>
+    <description>High confidence AS-REP Roasting: RC4 AS-REP without preauthentication — T1558.004</description>
+    <mitre>
+      <id>T1558.004</id>
+    </mitre>
+    <group>credential_access,asreproasting,high_confidence</group>
+  </rule>
+
+  <!--
+    Sweep detection: 3+ requests from same source in 60s.
+    Chains off the group (not a specific SID) — catches both base and
+    high-confidence hits. GetNPUsers.py enumerates all vulnerable accounts
+    automatically, generating rapid bursts from the same IP.
+  -->
+  <rule id="100012" level="15" frequency="3" timeframe="60">
+    <if_matched_group>asreproasting</if_matched_group>
+    <same_field>win.eventdata.ipAddress</same_field>
+    <description>AS-REP Roasting sweep: 3+ requests without preauthentication from same source in 60s — T1558.004</description>
+    <mitre>
+      <id>T1558.004</id>
+    </mitre>
+    <group>credential_access,asreproasting,sweep,high_confidence</group>
+  </rule>
+
+</group>

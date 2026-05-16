@@ -1,0 +1,37 @@
+title: AS-REP Roasting — Kerberos AS-REP Without Preauthentication
+id: 8a3f7b2e-4c9d-4f1a-b8e5-2d7c6a9f4b3e
+status: test
+description: |
+    Detects AS-REP Roasting — requesting Kerberos AS-REP tickets for accounts
+    with "Do not require Kerberos preauthentication" set. The returned ticket
+    is encrypted with the account's NTLM hash and can be cracked offline
+    (Hashcat mode 18200). No valid credentials are needed to perform this attack.
+references:
+    - https://attack.mitre.org/techniques/T1558/004/
+    - https://docs.microsoft.com/en-us/windows/security/threat-protection/auditing/event-4768
+    - https://github.com/fortra/impacket/blob/master/examples/GetNPUsers.py
+author: ges-cs01
+date: 2026/05/10
+tags:
+    - attack.credential_access
+    - attack.t1558.004
+logsource:
+    product: windows
+    service: security
+detection:
+    selection:
+        EventID: 4768
+        PreAuthType: 0
+        Status: '0x0'
+    filter_local:
+        IpAddress|startswith: '::1'
+    condition: selection and not filter_local
+falsepositives:
+    - Legacy applications or services with DONT_REQ_PREAUTH set for compatibility
+    - Scheduled tasks using accounts with this flag (audit and remove if possible)
+level: high
+fields:
+    - TargetUserName
+    - IpAddress
+    - TicketEncryptionType
+    - PreAuthType
