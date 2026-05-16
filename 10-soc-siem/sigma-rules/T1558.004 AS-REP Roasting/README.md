@@ -138,5 +138,5 @@ Set-ADAccountControl -Identity "username" -DoesNotRequirePreAuth $false
 
 - [MITRE ATT&CK T1558.004](https://attack.mitre.org/techniques/T1558/004/)
 - [Microsoft — Event 4768](https://docs.microsoft.com/en-us/windows/security/threat-protection/auditing/event-4768)
-- [Harmj0y — Roasting AS-REPs](https://www.harmj0y.net/blog/activedirectory/roasting-as-reps/)
+- [Harmj0y — Roasting AS-REPs](https://blog.harmj0y.net/activedirectory/roasting-as-reps/)
 - [Impacket GetNPUsers](https://github.com/fortra/impacket/blob/master/examples/GetNPUsers.py)
