@@ -1,0 +1,118 @@
+<!--
+  Rule: LSASS Memory Dump — T1003.001
+  Author: ges-cs01
+  Wazuh rule IDs: 100020, 100021, 100022, 100023
+  Log source: Sysmon Event ID 1 (Process Create) + Event ID 10 (Process Access)
+
+  LSASS stores credential material in memory: NTLM hashes, Kerberos tickets,
+  and cleartext passwords (WDigest). Attackers dump lsass.exe to extract
+  these credentials offline.
+
+  Requires:
+  - Sysmon installed with ProcessAccess rule targeting lsass.exe
+  - Wazuh agent collecting Microsoft-Windows-Sysmon/Operational
+
+  Drop into: /var/ossec/etc/rules/local_lsass_rules.xml
+  Restart:   systemctl restart wazuh-manager
+
+  Lessons learned (Wazuh 4.x):
+  - Use <if_group>sysmon_event_10</if_group> instead of <if_sid>61610</if_sid>
+    for Event 10 rules — avoids parent ID mismatch and eventchannel decoder bug.
+  - Set base filter rule to level="0" to avoid noisy intermediate alerts.
+  - Exclude MsMpEng.exe from access mask rules — Defender opens lsass with
+    high access rights legitimately, causing FPs.
+  - comsvcs.dll can be called by ordinal (#24) instead of MiniDump name —
+    both patterns must be covered.
+-->
+
+<group name="windows,lsass_dump,credential_access,mitre_attack">
+
+  <!--
+    Layer 1a — comsvcs.dll MiniDump via rundll32 (Sysmon Event 1).
+
+    Two bypass variants covered:
+    - Standard: rundll32 comsvcs.dll MiniDump <pid> <path>
+    - Ordinal:  rundll32 comsvcs.dll,#24 <pid> <path>  ← evasion technique
+      Attackers use the ordinal (#24) to avoid string-based detection on
+      "MiniDump" keyword. Both map to the same export function.
+
+    Chain: <if_sid>61603</if_sid> = Wazuh built-in Sysmon Event 1 parent.
+  -->
+  <rule id="100020" level="14">
+    <if_sid>61603</if_sid>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)comsvcs</field>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)(MiniDump|#24)</field>
+    <description>LSASS dump via comsvcs.dll (LOLBin) — T1003.001</description>
+    <mitre>
+      <id>T1003.001</id>
+    </mitre>
+    <group>credential_access,lsass_dump,high_confidence</group>
+  </rule>
+
+  <!--
+    Layer 1b — Known dump tools or flags targeting lsass (Sysmon Event 1).
+
+    Two detection vectors:
+    - Known binary names: procdump, dumpert, sqldumper
+    - Renamed binary evasion: catches -ma flag (ProcDump full dump switch)
+      even if the binary is renamed. Attacker renames procdump.exe to
+      svchost.exe — the -ma flag + lsass in commandLine still fires.
+  -->
+  <rule id="100021" level="14">
+    <if_sid>61603</if_sid>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)lsass</field>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)(procdump|dumpert|sqldumper|-ma)</field>
+    <description>LSASS dump activity detected via process creation flags/tools — T1003.001</description>
+    <mitre>
+      <id>T1003.001</id>
+    </mitre>
+    <group>credential_access,lsass_dump,high_confidence</group>
+  </rule>
+
+  <!--
+    Layer 2 base — ProcessAccess to lsass.exe (Sysmon Event 10).
+
+    Silent base filter (level="0") — no alert generated, used as parent
+    for rule 100023. Catches any process opening lsass with elevated
+    access rights (0x1xxx range).
+
+    Uses <if_group>sysmon_event_10</if_group> instead of <if_sid>61610</if_sid>
+    — more robust, avoids Wazuh eventchannel parent ID mismatch.
+
+    Access mask regex 0x1[0-9a-f]{3,} matches any mask starting with 0x1
+    followed by 3+ hex digits — covers the full range of dump-capable rights
+    while excluding low-privilege reads like 0x2000, 0x400.
+  -->
+  <rule id="100022" level="0">
+    <if_group>sysmon_event_10</if_group>
+    <field name="win.eventdata.targetImage" type="pcre2">(?i)lsass\.exe</field>
+    <field name="win.eventdata.grantedAccess" type="pcre2">0x1[0-9a-f]{3,}</field>
+    <description>Base rule: Process opened a handle to lsass.exe</description>
+  </rule>
+
+  <!--
+    Layer 2 high-confidence — Known malicious access masks on lsass.
+
+    Access masks used for credential dumping:
+    - 0x1010: PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ (Mimikatz)
+    - 0x1fffff: PROCESS_ALL_ACCESS (Task Manager, some Mimikatz variants)
+    - 0x143a: used by specific Mimikatz builds
+    - 0x1438: used by some credential dumping tools
+    - 0x1418: used by some credential dumping tools
+
+    MsMpEng.exe excluded — Windows Defender legitimately opens lsass with
+    high access rights for scanning. Without this exclusion, Defender
+    generates constant FPs on every AV scan.
+  -->
+  <rule id="100023" level="15">
+    <if_sid>100022</if_sid>
+    <field name="win.eventdata.grantedAccess" type="pcre2">(?i)^(0x1010|0x1fffff|0x143a|0x1438|0x1418)$</field>
+    <field name="win.eventdata.sourceImage" type="pcre2" negate="yes">(?i)MsMpEng\.exe</field>
+    <description>High confidence LSASS credential dump: suspicious access mask — T1003.001</description>
+    <mitre>
+      <id>T1003.001</id>
+    </mitre>
+    <group>credential_access,lsass_dump,high_confidence</group>
+  </rule>
+
+</group>

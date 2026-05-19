@@ -1,0 +1,38 @@
+title: LSASS Memory Dump via Process Creation
+id: 3c7f9a1e-5d2b-4e8f-b6a3-1c4d7e9f2a5b
+status: test
+description: Detects LSASS memory dump attempts via comsvcs.dll or known/renamed dump tools.
+references:
+    - https://attack.mitre.org/techniques/T1003/001/
+    - https://lolbas-project.github.io/lolbas/Libraries/Comsvcs/
+author: ges-cs01
+date: 2026/05/18
+tags:
+    - attack.credential_access
+    - attack.t1003.001
+logsource:
+    product: windows
+    category: process_creation
+detection:
+    selection_comsvcs:
+        CommandLine|contains: 'comsvcs'
+        CommandLine|contains: 
+            - 'MiniDump'
+            - '#24'
+    selection_tools_name:
+        Image|endswith:
+            - '\procdump.exe'
+            - '\dumpert.exe'
+            - '\sqldumper.exe'
+        CommandLine|contains: 'lsass'
+    selection_tools_flags:
+        CommandLine|contains: 'lsass'
+        CommandLine|contains: '-ma'
+    condition: selection_comsvcs or selection_tools_name or selection_tools_flags
+falsepositives:
+    - Legitimate crash dump collection troubleshooting by administrators
+level: high
+fields:
+    - Image
+    - CommandLine
+    - User
