@@ -57,7 +57,7 @@ Four rules across two Sysmon event types:
 
 Apply:
 ```cmd
-sysmon.exe -c sysmonconfig.xml
+sysmon64.exe -c sysmonconfig.xml
 ```
 
 ### Wazuh agent — Sysmon channel
