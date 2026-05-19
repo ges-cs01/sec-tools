@@ -40,7 +40,7 @@ Four rules across two Sysmon event types:
 ## Wazuh implementation notes
 
 - Use `<if_group>sysmon_event_10</if_group>` for Event 10 rules — more robust than
-  `<if_sid>61610</if_sid>`, avoids eventchannel parent ID mismatch bug in Wazuh 4.x.
+  `<if_sid>61610</if_sid>`, avoids eventchannel parent ID mismatch.
 - Rule 100022 is `level="0"` — silent base filter, exists only as parent for 100023.
 - `MsMpEng.exe` excluded from 100023 — Windows Defender opens lsass with high
   access rights legitimately, causing constant FPs without this exclusion.
@@ -93,16 +93,18 @@ rundll32.exe C:\Windows\System32\comsvcs.dll MiniDump $id C:\Windows\Temp\lsass.
 procdump.exe -ma lsass.exe C:\Windows\Temp\lsass.dmp
 ```
 
-### Option 3 — Task Manager (triggers 100023)
-
-Right-click `lsass.exe` in Task Manager -> Details tab -> Create dump file.
-
-### Option 4 — PS Process Access
+### Option 3 — PowerShell Process Access (triggers 100023)
 
 ```powershell
 $proc = Get-Process lsass
 $handle = $proc.Handle
 ```
+
+
+### Option 4 — Task Manager (triggers 100023)
+
+Right-click `lsass.exe` in Task Manager -> Details tab -> Create dump file.
+
 
 ### Validate
 
@@ -132,6 +134,6 @@ sudo tail -f /var/ossec/logs/alerts/alerts.json | grep --line-buffered "lsass\|1
 ## References
 
 - [MITRE ATT&CK T1003.001](https://attack.mitre.org/techniques/T1003/001/)
-- [LOLBAS — comsvcs.dll](https://lolbas-project.github.io/lolbas/Libraries/Comsvcs/)
+- [LOLBAS — comsvcs.dll](https://lolbas-project.github.io/lolbas/Libraries/comsvcs/)
 - [Sysmon Event ID 10](https://docs.microsoft.com/en-us/sysinternals/downloads/sysmon)
 - [comsvcs.dll ordinal bypass](https://www.ired.team/offensive-security/credential-access-and-credential-dumping/dump-credentials-from-lsass-process-without-mimikatz)
