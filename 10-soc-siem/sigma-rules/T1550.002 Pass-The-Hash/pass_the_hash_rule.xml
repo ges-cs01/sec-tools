@@ -1,0 +1,111 @@
+<!--
+  Rule: Pass-the-Hash — T1550.002
+  Author: ges-cs01
+  Wazuh rule IDs: 100030, 100031, 100032
+  Log source: Windows Security Event Log — Event ID 4624
+
+  Pass-the-Hash abuses NTLM authentication by using a captured NTLM hash
+  directly instead of a plaintext password. After dumping LSASS (T1003.001),
+  the attacker authenticates to remote services without knowing the password.
+
+  ALL NTLM logons produce a null LogonGuid — it is only populated
+  by Kerberos. Using null LogonGuid would fire on every legitimate NTLM
+  network logon. This rule uses subjectUserSid instead.
+
+  Why subjectUserSid S-1-0-0 works:
+  - Legitimate Windows NTLM: a local process (e.g. svchost, explorer) initiates
+    the auth — the subject fields identify that process/session (real SID).
+  - Impacket/PtH tools: authenticate directly at the protocol level with no
+    local Windows process context — subject is NULL SID (S-1-0-0).
+
+  Why blank workstationName works:
+  - Windows SMB clients always send their hostname in the NTLM auth exchange.
+  - Impacket and most PtH tools do not populate workstationName.
+
+  Caveats:
+  - Some legitimate scenarios also produce S-1-0-0 (e.g. some services).
+  - No single 4624 event gives confirmed PtH — treat as "suspicious NTLM".
+  - High-confidence detection comes from chain rules (100034/100037/100036/100038)
+    correlating this with PsExec or WMI execution.
+
+  Reproduction (use IP not hostname — forces NTLM over Kerberos):
+	wmiexec.py <user>@<IP> -hashes :<NTLM_HASH>
+	psexec.py <user>@<IP> -hashes :<NTLM_HASH>
+
+  Requires:
+    auditpol /set /subcategory:"Logon" /success:enable /failure:enable
+
+  Drop into: /var/ossec/etc/rules/
+  Restart:   systemctl restart wazuh-manager
+-->
+
+<group name="windows,lateral_movement,pass_the_hash,mitre_attack">
+
+  <!--
+    Base rule: NTLM network logon with null subject context.
+    Chains off built-in rule 92652 (NTLM logon type 3 detector, level 6).
+    Level 0 — silent base, no alert generated, parent for 100031.
+
+    Three conditions must all be true:
+    - subjectUserSid = S-1-0-0: NULL SID — no local Windows process initiated
+      this logon. Tools authenticating at protocol level have no subject context.
+    - logonProcessName = NtLmSsp: NTLM Security Support Provider used.
+    - authenticationPackageName = NTLM: confirms NTLM auth, not Kerberos.
+  -->
+  <rule id="100030" level="0">
+    <if_sid>92652</if_sid>
+    <field name="win.eventdata.subjectUserSid">S-1-0-0</field>
+    <field name="win.eventdata.logonProcessName" type="pcre2">(?i)NtLmSsp</field>
+    <field name="win.eventdata.authenticationPackageName" type="pcre2">(?i)NTLM</field>
+    <description>Base: NTLM network logon with null subject — possible PtH or remote tool</description>
+  </rule>
+
+  <!--
+    Medium-confidence: null subject + NTLMv2 + external IP + blank workstation.
+
+    Additional conditions on top of 100030:
+    - ipAddress not localhost: filters out local NTLM (::1, 127.0.0.1).
+    - targetUserName not ending in $: filters out machine account logons
+      (DC-to-DC NTLM is normal and uses machine accounts).
+    - workstationName blank or "-": Windows SMB clients always send their
+      hostname. Impacket does not. Regex ^-?$|^$ matches both "-" and empty.
+
+    Still produces some FPs from certain services — see caveats above.
+    Treat as "suspicious NTLM requiring investigation", not confirmed PtH.
+  -->
+  <rule id="100031" level="12">
+    <if_sid>100030</if_sid>
+    <field name="win.eventdata.keyLength">128</field>
+    <field name="win.eventdata.ipAddress" type="pcre2" negate="yes">^127\.0\.0\.1$|^::1$</field>
+    <field name="win.eventdata.targetUserName" type="pcre2" negate="yes">\$$</field>
+    <description>Possible Pass-the-Hash: NTLM V2 logon with null subject and no workstation name — T1550.002</description>
+    <mitre>
+      <id>T1550.002</id>
+    </mitre>
+    <group>pass_the_hash,medium_confidence</group>
+  </rule>
+
+  <!--
+    High-confidence: suspicious NTLM logon targeting a privileged account.
+    Chains off 100031 and adds elevated token check.
+
+    elevatedToken = %%1842: the logon token carries admin privileges.
+    Admin-level suspicious NTLM = likely intentional lateral movement,
+    not accidental or legacy service behavior.
+
+    Still not confirmed PtH — confirmed only when correlated with:
+    - PsExec service creation (rules 100034/100037 in T1021.002)
+    - WMI cmd.exe spawn (rules 100036/100038 in T1047)
+    Those chain rules are the real high-confidence PtH signal.
+  -->
+  <rule id="100032" level="14">
+    <if_sid>100031</if_sid>
+    <field name="win.eventdata.elevatedToken">%%1842</field>
+    <description>High confidence Pass-the-Hash: privileged NTLM logon with null subject — T1550.002</description>
+    <mitre>
+      <id>T1550.002</id>
+    </mitre>
+    <group>pass_the_hash,high_confidence,privileged</group>
+  </rule>
+
+</group>

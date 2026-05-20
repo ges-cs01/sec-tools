@@ -1,0 +1,81 @@
+<!--
+  Rule: WMI Remote Execution — T1047
+  Author: ges-cs01
+  Wazuh rule IDs: 100035, 100036, 100038
+  Log source: Sysmon Event ID 1 (Process Create)
+
+  Impacket wmiexec.py executes commands remotely via WMI by:
+  1. Authenticating via NTLM (Event 4624 logon type 3)
+  2. Using WMI to spawn WmiPrvSE.exe on the target
+  3. WmiPrvSE.exe spawns cmd.exe with /Q /c flags (output redirection)
+
+  Impacket wmiexec.py signature (Sysmon Event 1):
+    parentImage:  C:\Windows\System32\wbem\WmiPrvSE.exe
+    image:        C:\Windows\System32\cmd.exe
+    commandLine:  cmd.exe /Q /c <command> 2>&1
+
+  The /Q flag (echo off) + /c flag + WmiPrvSE.exe parent is a near-unique
+  indicator of Impacket wmiexec.py behavior.
+
+  Rules 100036 and 100038 correlate WMI execution with PtH for full
+  attack chain detection — bidirectional like the PsExec chain rules.
+
+  Drop into: /var/ossec/etc/rules/
+  Restart:   systemctl restart wazuh-manager
+-->
+
+<group name="windows,lateral_movement,wmiexec,mitre_attack">
+
+  <!--
+    WmiPrvSE.exe spawning hidden cmd.exe — Impacket wmiexec.py signature.
+    Detects via Sysmon Event 1 (Process Create):
+    - parentImage matches WmiPrvSE.exe
+    - image matches cmd.exe
+    - commandLine contains cmd.exe /Q /c pattern
+  -->
+  <rule id="100035" level="14">
+    <if_group>windows</if_group>
+    <field name="win.eventdata.parentImage" type="pcre2">(?i)WmiPrvSE\.exe</field>
+    <field name="win.eventdata.image" type="pcre2">(?i)cmd\.exe</field>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)cmd\.exe.*\/Q\s+\/c</field>
+    <description>Suspicious WMI execution: WmiPrvSE.exe spawned hidden cmd.exe — Impacket wmiexec behavior (T1047)</description>
+    <mitre>
+      <id>T1047</id>
+    </mitre>
+    <group>wmiexec,high_confidence</group>
+  </rule>
+
+  <!--
+    Attack chain — WMI fires first, PtH already seen.
+    WmiPrvSE cmd.exe spawn (100035) within 120s of PtH alert (100031/100032).
+    same_field on computer ensures both events are on the same target host.
+  -->
+  <rule id="100036" level="15" timeframe="120">
+    <if_sid>100035</if_sid>
+    <if_matched_sid>100031,100032</if_matched_sid>
+    <same_field>win.system.computer</same_field>
+    <description>Attack chain: Pass-the-Hash followed by WMI remote execution — T1550.002 + T1047</description>
+    <mitre>
+      <id>T1550.002</id>
+      <id>T1047</id>
+    </mitre>
+    <group>attack_chain,high_confidence</group>
+  </rule>
+
+  <!--
+    Attack chain — PtH fires first, WMI already seen.
+    Bidirectional pair to 100036 — handles log ingestion timing differences.
+  -->
+  <rule id="100038" level="15" timeframe="120">
+    <if_sid>100031,100032</if_sid>
+    <if_matched_sid>100035</if_matched_sid>
+    <same_field>win.system.computer</same_field>
+    <description>Attack chain: Pass-the-Hash followed by WMI remote execution — T1550.002 + T1047</description>
+    <mitre>
+      <id>T1550.002</id>
+      <id>T1047</id>
+    </mitre>
+    <group>attack_chain,high_confidence</group>
+  </rule>
+
+</group>

@@ -1,0 +1,80 @@
+<!--
+  Rule: PsExec / Remote Service Execution — T1021.002
+  Author: ges-cs01
+  Wazuh rule IDs: 100033, 100034, 100037
+  Log source: Windows System Event Log — Event ID 7045
+
+  PsExec and Impacket psexec.py move laterally by:
+  1. Copying a service binary to target via SMB (ADMIN$ share)
+  2. Creating a remote service (Event 7045) with a random name
+  3. Executing commands through named pipes
+
+  Impacket psexec.py signature:
+    serviceName: random 4-char string (TTGL, gvIi, XkPm...)
+    imagePath:   %systemroot%\<random>.exe
+    accountName: LocalSystem
+    startType:   demand start
+
+  Wazuh built-in rule 92650 detects suspicious service creation from
+  %systemroot%. Rules 100033/100034/100037 add MITRE tagging and
+  correlate with PtH for full attack chain detection.
+
+  Rules 100034 and 100037 are bidirectional — either PsExec or PtH
+  can fire first and still trigger the chain alert.
+
+  Drop into: /var/ossec/etc/rules/
+  Restart:   systemctl restart wazuh-manager
+-->
+
+<group name="windows,lateral_movement,psexec,mitre_attack">
+
+  <!--
+    PsExec service creation — chains off built-in rule 92650.
+    92650 detects services created from Windows root path with random names.
+    Adds MITRE T1021.002 + T1569.002 tagging at higher alert level.
+  -->
+  <rule id="100033" level="14">
+    <if_sid>92650</if_sid>
+    <description>PsExec/remote service execution: suspicious service created from system path — T1021.002</description>
+    <mitre>
+      <id>T1021.002</id>
+      <id>T1569.002</id>
+    </mitre>
+    <group>psexec,high_confidence</group>
+  </rule>
+
+  <!--
+    Attack chain — PsExec fires first, PtH already seen.
+    Detects: PsExec service (100033) within 120s of a PtH alert (100031/100032).
+    same_field on computer ensures both events are on the same target host.
+  -->
+  <rule id="100034" level="15" timeframe="120">
+    <if_sid>100033</if_sid>
+    <if_matched_sid>100031,100032</if_matched_sid>
+    <same_field>win.system.computer</same_field>
+    <description>Attack chain: Pass-the-Hash followed by PsExec remote execution — T1550.002 + T1021.002</description>
+    <mitre>
+      <id>T1550.002</id>
+      <id>T1021.002</id>
+    </mitre>
+    <group>attack_chain,high_confidence</group>
+  </rule>
+
+  <!--
+    Attack chain — PtH fires first, PsExec already seen.
+    Bidirectional pair to 100034 — catches the case where PtH alert
+    arrives after PsExec due to log ingestion timing differences.
+  -->
+  <rule id="100037" level="15" timeframe="120">
+    <if_sid>100031,100032</if_sid>
+    <if_matched_sid>100033</if_matched_sid>
+    <same_field>win.system.computer</same_field>
+    <description>Attack chain: Pass-the-Hash followed by PsExec remote execution — T1550.002 + T1021.002</description>
+    <mitre>
+      <id>T1550.002</id>
+      <id>T1021.002</id>
+    </mitre>
+    <group>attack_chain,high_confidence</group>
+  </rule>
+
+</group>
