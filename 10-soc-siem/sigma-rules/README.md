@@ -16,20 +16,20 @@ Every directory contains:
 ## Coverage
 
 ### Credential Access
-| ID | Technique | Rule ID | Status |
-|---|---|---|---|
-| T1558.003 | Kerberoasting | 100001 | ✅ |
-| T1558.004 | AS-REP Roasting | 100002 | ✅ |
-| T1003.001 | LSASS Memory Dump | 100003 | 🔲 |
-| T1110.003 | Password Spraying | 100004 | 🔲 |
+| ID | Technique | Status |
+|---|---|---|
+| T1558.003 | Kerberoasting | ✅ |
+| T1558.004 | AS-REP Roasting | ✅ |
+| T1003.001 | LSASS Memory Dump | ✅ |
+| T1110.003 | Password Spraying | 🔲 |
 
 ### Lateral Movement
-| ID | Technique | Rule ID | Status |
-|---|---|---|---|
-| T1550.002 | Pass-the-Hash | 100010 | 🔲 |
-| T1021.002 | PsExec / SMB exec | 100011 | 🔲 |
-| T1021.006 | WMI lateral movement | 100012 | 🔲 |
-| T1543.003 | Remote service creation | 100013 | 🔲 |
+| ID | Technique | Status |
+|---|---|---|
+| T1550.002 | Pass-the-Hash | ✅ |
+| T1021.002 | PsExec / SMB exec | ✅ |
+| T1021.006 | WMI lateral movement | ✅ |
+| T1543.003 | Remote service creation | 🔲 |
 
 ## Requirements
 
