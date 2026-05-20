@@ -8,8 +8,7 @@ the attacker authenticates to remote services without knowing the actual passwor
 
 **Full attack chain in this lab:**
 ```
-LSASS dump (T1003.001) → extract NTLM hash (pypykatz) → PtH (T1550.002) → PsExec shell (T1021.002)
-                                                                           → WMI execution (T1047)
+LSASS dump (T1003.001) → extract NTLM hash (pypykatz) → PtH (T1550.002) → PsExec shell (T1021.002) → WMI execution (T1047)
 ```
 
 ## ATT&CK mapping
@@ -26,7 +25,7 @@ LSASS dump (T1003.001) → extract NTLM hash (pypykatz) → PtH (T1550.002) → 
 Before, a null LogonGuid was used for detection, but very often NTLM logons produce a null LogonGuid (it is only populated by Kerberos). Relying on this field alone causes massive false positives. Instead, this detection relies on the subject context and workstation name:
 
 | Indicator | Legitimate Windows NTLM | Pass-the-Hash / Impacket |
-|---|---|
+|---|---|---|
 | subjectUserSid | Real SID (identifying the local process/session like svchost) | S-1-0-0 (NULL SID)
 | workstationName | Populated (Windows SMB clients always send their hostname) | Blank or -
 
