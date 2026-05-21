@@ -1,6 +1,6 @@
 # sec-tools
 
-A collection of security engineering tools and detection content for SOC / SIEM workflows, built around a home lab running Wazuh, Elastic Stack, and DFIR-IRIS.
+A collection of security engineering tools and detection content for SOC / SIEM workflows, built around labs running Wazuh, Elastic Stack, and DFIR-IRIS.
 
 ## Repository layout
 
