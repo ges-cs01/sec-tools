@@ -83,7 +83,3 @@ sudo systemctl restart wazuh-manager
 - **Endpoints** — Windows Server 2022 DC + Windows 10 workstation (`lab.local`)
 - **SIEM/EDR** — Wazuh 4.x manager + Elastic Stack
 - **IR platform** — DFIR-IRIS
-
-## License
-
-See individual project directories for licensing details.
