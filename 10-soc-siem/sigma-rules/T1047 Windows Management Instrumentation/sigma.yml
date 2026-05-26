@@ -1,0 +1,40 @@
+title: WMI Remote Execution via Impacket wmiexec.py
+id: a3f1c2e7-84b0-4d6a-9f3e-1b2c5d7e9a0f
+status: experimental
+description: >
+  Detects Impacket wmiexec.py lateral movement via WMI (T1047).
+  wmiexec.py authenticates over NTLM and instructs WMI to spawn
+  WmiPrvSE.exe, which then launches cmd.exe with /Q /c flags for
+  headless command execution and output redirection.
+  The WmiPrvSE.exe → cmd.exe /Q /c chain is a near-unique indicator
+  of Impacket wmiexec behavior.
+author: ges-cs01
+date: 2025-05-25
+references:
+  - https://attack.mitre.org/techniques/T1047/
+  - https://github.com/fortra/impacket/blob/master/impacket/examples/wmiexec.py
+tags:
+  - attack.lateral_movement
+  - attack.execution
+  - attack.t1047
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    ParentImage|endswith: '\wbem\WmiPrvSE.exe'
+    Image|endswith: '\cmd.exe'
+    CommandLine|re: '(?i)cmd\.exe.*\/Q\s+\/c'
+  condition: selection
+fields:
+  - ParentImage
+  - Image
+  - CommandLine
+  - User
+  - ComputerName
+  - ProcessId
+  - ParentProcessId
+falsepositives:
+  - Legitimate administrative scripts that use WMI to invoke cmd.exe
+    with /Q /c — review ComputerName and User fields to baseline
+level: high
