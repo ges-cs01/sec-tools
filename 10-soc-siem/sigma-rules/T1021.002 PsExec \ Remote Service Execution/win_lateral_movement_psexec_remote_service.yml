@@ -1,0 +1,69 @@
+title: PsExec / Impacket Remote Service Execution via SMB
+id: a7f3e2b1-4c8d-4f9a-b2e5-1d6c3a8f7e0b
+status: experimental
+description: |
+  Detects remote service creation matching PsExec and Impacket psexec.py
+  lateral movement patterns. Both tools copy a service binary to the target
+  via SMB (ADMIN$ share) and register it through the Service Control Manager,
+  generating Event ID 7045. Impacket psexec.py is identified by a random
+  4-character service name (e.g. TTGL, gvIi), an image path pointing to a
+  random executable directly under %SystemRoot%, LocalSystem account, and
+  demand start type. Sysinternals PsExec uses the fixed service name
+  "PSEXESVC" with the same system-root path pattern.
+references:
+  - https://attack.mitre.org/techniques/T1021/002/
+  - https://attack.mitre.org/techniques/T1569/002/
+  - https://github.com/fortra/impacket/blob/master/impacket/examples/psexec.py
+  - https://docs.microsoft.com/en-us/sysinternals/downloads/psexec
+author: ges-cs01
+date: 2025-06-01
+tags:
+  - attack.lateral_movement
+  - attack.execution
+  - attack.t1021.002
+  - attack.t1569.002
+logsource:
+  product: windows
+  service: system
+  definition: 'Event ID 7045 — A new service was installed in the system. Requires
+    System event log auditing. Captured by Wazuh agent (windows_eventchannel
+    decoder) or Winlogbeat/NXLog forwarding to SIEM.'
+detection:
+  selection_event:
+    EventID: 7045
+
+  # --- Impacket psexec.py signature ---
+  # Random 4-char service name + binary dropped directly in %SystemRoot%
+  # as <random>.exe, running as LocalSystem with demand start.
+  selection_impacket:
+    ServiceFileName|re: '(?i)^%systemroot%\\[a-zA-Z0-9]{1,8}\.exe$'
+    AccountName: 'LocalSystem'
+    StartType: 'demand start'
+    ServiceName|re: '^[a-zA-Z0-9]{4}$'
+
+  # --- Sysinternals PsExec signature ---
+  # Fixed service name PSEXESVC, binary also lives in %SystemRoot%.
+  selection_psexec_sysinternals:
+    ServiceName: 'PSEXESVC'
+    ServiceFileName|contains: '%SystemRoot%'
+
+  condition: selection_event and (selection_impacket or selection_psexec_sysinternals)
+
+falsepositives:
+  - Legitimate remote administration via Sysinternals PsExec by IT operations
+    (PSEXESVC variant). Review AccountName and initiating host against a known
+    admin asset list.
+  - Rare short-named services installed by third-party software whose binary
+    legitimately resides under %SystemRoot%. Validate ImagePath and code
+    signature of the binary.
+
+level: high
+
+# --- Field mapping notes ---
+# Windows System log field names vary by shipper:
+#   Wazuh (windows_eventchannel):  win.system.message / win.eventdata.*
+#   Winlogbeat:                    winlog.event_data.ServiceName, etc.
+# Adjust field names to match your pipeline's ECS/custom mapping.
+# The detection above uses the canonical Sigma Windows service log fields
+# (ServiceName, ServiceFileName, AccountName, StartType) which most
+# Sigma backends resolve correctly via their Windows fieldmapping.
